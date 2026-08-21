@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>使用 Docker 搭建本地开发环境 - BlackHoleMax的开发日志</title>
+  <meta name="description" content="由 fastblog 驱动的静态博客">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title"><a href="/index.html">BlackHoleMax的开发日志</a></h1>
+    <p class="site-description">由 fastblog 驱动的静态博客</p>
+  </header>
+
+  <main class="site-main">
+    
+<article class="post">
+  <h1 class="post-title">使用 Docker 搭建本地开发环境</h1>
+  <p class="post-meta">发布于 2026-08-21</p>
+  
+  <nav class="post-toc"><div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#_2">方案选型</a></li>
+<li><a href="#_3">实施过程</a><ul>
+<li><a href="#docker-desktopwindows">安装 Docker Desktop（Windows）</a></li>
+<li><a href="#_4">常用命令速查</a></li>
+<li><a href="#docker-compose">用 docker-compose 编排多服务</a></li>
+</ul>
+</li>
+<li><a href="#_5">踩坑记录</a><ul>
+<li><a href="#port-is-already-allocated">端口被占用：port is already allocated</a></li>
+<li><a href="#wsl-2">WSL 2 下代码挂载的写入性能慢</a></li>
+<li><a href="#windows-wsl-rwxrwxrwx">Windows 文件权限问题：文件出现在 WSL 中为 -rwxrwxrwx</a></li>
+<li><a href="#docker-compose-docker-compose">docker compose 与 docker-compose 命令不一致</a></li>
+<li><a href="#docker-composeyml">修改了 docker-compose.yml 但服务没变化</a></li>
+</ul>
+</li>
+<li><a href="#_6">结语</a></li>
+</ul>
+</div>
+</nav>
+  
+  <div class="post-content">
+    <div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#_2">方案选型</a></li>
+<li><a href="#_3">实施过程</a><ul>
+<li><a href="#docker-desktopwindows">安装 Docker Desktop（Windows）</a></li>
+<li><a href="#_4">常用命令速查</a></li>
+<li><a href="#docker-compose">用 docker-compose 编排多服务</a></li>
+</ul>
+</li>
+<li><a href="#_5">踩坑记录</a><ul>
+<li><a href="#port-is-already-allocated">端口被占用：port is already allocated</a></li>
+<li><a href="#wsl-2">WSL 2 下代码挂载的写入性能慢</a></li>
+<li><a href="#windows-wsl-rwxrwxrwx">Windows 文件权限问题：文件出现在 WSL 中为 -rwxrwxrwx</a></li>
+<li><a href="#docker-compose-docker-compose">docker compose 与 docker-compose 命令不一致</a></li>
+<li><a href="#docker-composeyml">修改了 docker-compose.yml 但服务没变化</a></li>
+</ul>
+</li>
+<li><a href="#_6">结语</a></li>
+</ul>
+</div>
+<h2 id="_1">背景</h2>
+<p>新项目往往要同时依赖 MySQL、Redis、Nginx 等多个服务。逐个手动安装、
+配置、升级，既耗时又容易让不同项目的依赖互相冲突（比如两个项目需要
+不同版本的 Redis）。本文记录用 Docker 把整套依赖"装进容器"，让本地
+环境一条命令起停、跨机器一致的实践过程。</p>
+<h2 id="_2">方案选型</h2>
+<p>搭建本地开发环境，主流有三种思路：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>直接安装到宿主机</td>
+<td>简单直接，零学习成本</td>
+<td>依赖冲突、卸载残留、版本难切换</td>
+</tr>
+<tr>
+<td>虚拟机（VirtualBox/VMware）</td>
+<td>隔离彻底，接近生产</td>
+<td>资源占用高、启动慢、共享目录麻烦</td>
+</tr>
+<tr>
+<td>容器（Docker）</td>
+<td>轻量秒级启动、版本隔离、配置即代码</td>
+<td>需要理解镜像/容器/数据卷等概念</td>
+</tr>
+</tbody>
+</table>
+<p>最终选择 Docker：环境描述以 <code>Dockerfile</code> 与 <code>docker-compose.yml</code> 形式
+提交进仓库，新同事 clone 后一条命令即可还原环境，彻底告别"在我机器上
+能跑"。</p>
+<h2 id="_3">实施过程</h2>
+<h3 id="docker-desktopwindows">安装 Docker Desktop（Windows）</h3>
+<ol>
+<li>访问 Docker 官网下载 Docker Desktop for Windows 安装包。</li>
+<li>安装时勾选使用 WSL 2 后端（Windows 10/11 需要先启用 WSL：
+   <code>wsl --install</code>）。</li>
+<li>安装完成后重启，运行 <code>docker version</code> 验证：</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="n">docker</span> <span class="n">version</span>
+</code></pre></div>
+
+<p>输出 <code>Client</code> 与 <code>Server</code> 两部分都正常显示版本号，说明安装成功
+（<code>Server</code> 缺失通常表示 Docker 引擎未启动）。</p>
+<ol>
+<li>确认版本信息：</li>
+</ol>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>info
+</code></pre></div>
+
+<h3 id="_4">常用命令速查</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># 镜像</span>
+docker<span class="w"> </span>pull<span class="w"> </span>redis:7<span class="w">        </span><span class="c1"># 拉取镜像</span>
+docker<span class="w"> </span>images<span class="w">              </span><span class="c1"># 查看本地镜像</span>
+docker<span class="w"> </span>rmi<span class="w"> </span>redis:7<span class="w">         </span><span class="c1"># 删除镜像</span>
+
+<span class="c1"># 容器</span>
+docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>my-redis<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span>:6379<span class="w"> </span>redis:7
+docker<span class="w"> </span>ps<span class="w">                  </span><span class="c1"># 查看运行中容器</span>
+docker<span class="w"> </span>ps<span class="w"> </span>-a<span class="w">               </span><span class="c1"># 查看全部容器</span>
+docker<span class="w"> </span>stop<span class="w"> </span>my-redis<span class="w">       </span><span class="c1"># 停止</span>
+docker<span class="w"> </span>start<span class="w"> </span>my-redis<span class="w">      </span><span class="c1"># 启动</span>
+docker<span class="w"> </span>rm<span class="w"> </span>my-redis<span class="w">         </span><span class="c1"># 删除容器（需先停止）</span>
+
+<span class="c1"># 进入容器 / 查看日志</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>my-redis<span class="w"> </span>sh
+docker<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>my-redis
+
+<span class="c1"># 清理</span>
+docker<span class="w"> </span>system<span class="w"> </span>prune<span class="w">        </span><span class="c1"># 清理悬空镜像与停止的容器</span>
+</code></pre></div>
+
+<h3 id="docker-compose">用 docker-compose 编排多服务</h3>
+<p>单条 <code>docker run</code> 参数一多就难以维护，改用 <code>docker-compose.yml</code> 声明式
+管理。示例：一个 Go 应用 + MySQL + Redis 的开发环境。</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># docker-compose.yml</span>
+<span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mysql</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mysql:8.0</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dev-mysql</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">MYSQL_ROOT_PASSWORD</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
+<span class="w">      </span><span class="nt">MYSQL_DATABASE</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">app</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"3306:3306"</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mysql-data:/var/lib/mysql</span>
+<span class="w">    </span><span class="nt">healthcheck</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">test</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"CMD"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"mysqladmin"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"ping"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-h"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"localhost"</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
+<span class="w">      </span><span class="nt">retries</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+
+<span class="w">  </span><span class="nt">redis</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">redis:7</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dev-redis</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"6379:6379"</span>
+
+<span class="w">  </span><span class="nt">app</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">build</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dev-app</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"8080:8080"</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">DB_DSN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root:root@tcp(mysql:3306)/app?charset=utf8mb4</span>
+<span class="w">      </span><span class="nt">REDIS_ADDR</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">redis:6379</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">mysql</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">      </span><span class="nt">redis</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_started</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.:/app</span><span class="w">          </span><span class="c1"># 本地代码热挂载</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">go run main.go</span>
+
+<span class="nt">volumes</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mysql-data</span><span class="p">:</span>
+</code></pre></div>
+
+<p>要点：</p>
+<ul>
+<li>容器间通过<strong>服务名</strong>（<code>mysql</code>、<code>redis</code>）互相访问，而不是 localhost；</li>
+<li><code>depends_on</code> 配合 <code>healthcheck</code>，保证 MySQL 就绪后再启动应用；</li>
+<li>数据卷 <code>mysql-data</code> 让数据库文件与容器生命周期解耦，删容器不丢数据。</li>
+</ul>
+<p>启动与使用：</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">       </span><span class="c1"># 后台启动全部服务</span>
+docker<span class="w"> </span>compose<span class="w"> </span>ps<span class="w">          </span><span class="c1"># 查看服务状态</span>
+docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>app<span class="w"> </span><span class="c1"># 跟随应用日志</span>
+docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w">        </span><span class="c1"># 停止并移除容器（数据卷保留）</span>
+docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w"> </span>-v<span class="w">     </span><span class="c1"># 连同数据卷一起删除（谨慎！）</span>
+</code></pre></div>
+
+<h2 id="_5">踩坑记录</h2>
+<h3 id="port-is-already-allocated">端口被占用：<code>port is already allocated</code></h3>
+<p>本机已安装原生 MySQL 时，容器 3306 映射会冲突。解法：改宿主端口
+<code>"3307:3306"</code>，或停用宿主机原生服务；容器间通信不受影响，因为走的是
+服务名。</p>
+<h3 id="wsl-2">WSL 2 下代码挂载的写入性能慢</h3>
+<p><code>volumes</code> 直接把 Windows 目录挂进容器时，频繁读写（如编译产物、
+<code>node_modules</code>）会明显变慢。解法：把依赖目录用命名卷覆盖，例如
+<code>app</code> 服务中追加 <code>node_modules:/app/node_modules</code>；纯日志与中间产物
+放到卷内。</p>
+<h3 id="windows-wsl-rwxrwxrwx">Windows 文件权限问题：文件出现在 WSL 中为 <code>-rwxrwxrwx</code></h3>
+<p>通过 Windows 共享文件在容器里总是全权限位，git 会误判为"可执行"而
+告警。解法：容器内生成的文件尽量写在命名卷里，避免写回 Windows
+文件系统；或在项目根放 <code>.gitattributes</code> 显式声明。</p>
+<h3 id="docker-compose-docker-compose"><code>docker compose</code> 与 <code>docker-compose</code> 命令不一致</h3>
+<p>新版 Docker Desktop 推荐 <code>docker compose</code>（子命令形式，V2），旧教程
+多为 <code>docker-compose</code>（独立二进制）。两个版本都可用，但注意：新版
+<code>docker compose up</code> 在代码变更后不会自动重建镜像，需要</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</code></pre></div>
+
+<h3 id="docker-composeyml">修改了 <code>docker-compose.yml</code> 但服务没变化</h3>
+<p><code>docker compose up -d</code> 是增量式的，配置或 Dockerfile 变化后要显式加
+<code>--build</code> 重建，而不是只依赖 restart：</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build<span class="w"> </span>--force-recreate
+</code></pre></div>
+
+<h2 id="_6">结语</h2>
+<p>Docker 把"搭环境"从重复劳动变成了可提交、可复现的配置代码：<code>git
+clone</code> 之后执行 <code>docker compose up -d</code>，一套一致的环境就绪。下一步计
+划把本文示例改造成完整的开发/测试双环境 compose 文件，并把镜像
+<code>pull</code> 也固化进项目文档，进一步缩短新成员上手时间。</p>
+  </div>
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 blackholemax-oss · Powered by fastblog</p>
+  </footer>
+</body>
+</html>

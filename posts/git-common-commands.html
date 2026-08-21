@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Git 常用命令笔记 - BlackHoleMax的开发日志</title>
+  <meta name="description" content="由 fastblog 驱动的静态博客">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title"><a href="/index.html">BlackHoleMax的开发日志</a></h1>
+    <p class="site-description">由 fastblog 驱动的静态博客</p>
+  </header>
+
+  <main class="site-main">
+    
+<article class="post">
+  <h1 class="post-title">Git 常用命令笔记</h1>
+  <p class="post-meta">发布于 2026-08-21</p>
+  
+  <nav class="post-toc"><div class="toc">
+<ul>
+<li><a href="#_1">引言</a></li>
+<li><a href="#_2">基础提交流程</a></li>
+<li><a href="#_3">分支管理</a></li>
+<li><a href="#_4">撤销操作</a></li>
+<li><a href="#_5">远程协作</a></li>
+<li><a href="#_6">结语</a></li>
+</ul>
+</div>
+</nav>
+  
+  <div class="post-content">
+    <div class="toc">
+<ul>
+<li><a href="#_1">引言</a></li>
+<li><a href="#_2">基础提交流程</a></li>
+<li><a href="#_3">分支管理</a></li>
+<li><a href="#_4">撤销操作</a></li>
+<li><a href="#_5">远程协作</a></li>
+<li><a href="#_6">结语</a></li>
+</ul>
+</div>
+<h2 id="_1">引言</h2>
+<p>Git 是现代开发的必备工具，但命令繁多，新手往往记不住。
+本文整理四类最常用的命令场景，配合示例，随用随查。</p>
+<h2 id="_2">基础提交流程</h2>
+<p>初始化仓库并完成第一次提交：</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>init<span class="w">                    </span><span class="c1"># 初始化仓库</span>
+git<span class="w"> </span>status<span class="w">                  </span><span class="c1"># 查看工作区状态</span>
+git<span class="w"> </span>add<span class="w"> </span>README.md<span class="w">           </span><span class="c1"># 暂存指定文件</span>
+git<span class="w"> </span>add<span class="w"> </span>.<span class="w">                   </span><span class="c1"># 暂存全部改动</span>
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"docs: 初始化"</span><span class="w"> </span><span class="c1"># 提交并附上说明</span>
+git<span class="w"> </span>log<span class="w"> </span>--oneline<span class="w">           </span><span class="c1"># 查看提交历史</span>
+</code></pre></div>
+
+<p>注意：<code>git add</code> 只把改动放进暂存区，<code>git commit</code> 才会真正
+生成一个提交记录。养成「先 status、再 add、后 commit」的习惯，
+能有效避免把多余文件提交进去。</p>
+<h2 id="_3">分支管理</h2>
+<p>分支让多个功能并行开发互不干扰：</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>branch<span class="w">                </span><span class="c1"># 列出本地分支</span>
+git<span class="w"> </span>branch<span class="w"> </span>feature-login<span class="w">  </span><span class="c1"># 创建新分支</span>
+git<span class="w"> </span>checkout<span class="w"> </span>feature-login<span class="w">  </span><span class="c1"># 切换分支（旧命令）</span>
+git<span class="w"> </span>switch<span class="w"> </span>feature-login<span class="w">  </span><span class="c1"># 切换分支（新命令，更直观）</span>
+git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>fix-bug<span class="w">   </span><span class="c1"># 创建并切换到新分支</span>
+git<span class="w"> </span>branch<span class="w"> </span>-d<span class="w"> </span>fix-bug<span class="w">     </span><span class="c1"># 删除已合并的分支</span>
+git<span class="w"> </span>merge<span class="w"> </span>feature-login<span class="w">   </span><span class="c1"># 把分支合并到当前分支</span>
+</code></pre></div>
+
+<p>建议每个功能或 bug 修复都开独立分支，完成后合并回主干，
+避免在主干上堆砌半成品提交。</p>
+<h2 id="_4">撤销操作</h2>
+<p>撤销是新手最怕出错的部分，记住三个工具：</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>restore<span class="w"> </span>file.txt<span class="w">      </span><span class="c1"># 丢弃工作区改动，回到暂存区/HEAD 状态</span>
+git<span class="w"> </span>restore<span class="w"> </span>--staged<span class="w"> </span>file.txt<span class="w">  </span><span class="c1"># 把文件移出暂存区（不丢改动）</span>
+git<span class="w"> </span>commit<span class="w"> </span>--amend<span class="w"> </span>-m<span class="w"> </span><span class="s2">"修正后的说明"</span><span class="w">  </span><span class="c1"># 修改最近一次提交信息</span>
+git<span class="w"> </span>reset<span class="w"> </span>--soft<span class="w"> </span>HEAD~1<span class="w">   </span><span class="c1"># 撤销最近一次提交，改动保留在暂存区</span>
+git<span class="w"> </span>reset<span class="w"> </span>--hard<span class="w"> </span>HEAD~1<span class="w">   </span><span class="c1"># 彻底撤销提交和改动（慎用！）</span>
+</code></pre></div>
+
+<p><code>--hard</code> 会永久丢弃改动，使用前务必确认。如果提交已经推到
+远程，一般改用 <code>git revert &lt;commit&gt;</code> 生成一个反向提交来
+"安全撤销"。</p>
+<h2 id="_5">远程协作</h2>
+<p>与他人协作，先关联远程仓库，再推送与拉取：</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>origin<span class="w"> </span>https://github.com/you/repo.git
+git<span class="w"> </span>remote<span class="w"> </span>-v<span class="w">             </span><span class="c1"># 查看远程仓库</span>
+git<span class="w"> </span>push<span class="w"> </span>-u<span class="w"> </span>origin<span class="w"> </span>main<span class="w">   </span><span class="c1"># 首次推送，建立关联</span>
+git<span class="w"> </span>push<span class="w">                  </span><span class="c1"># 之后可直接推送</span>
+git<span class="w"> </span>pull<span class="w">                  </span><span class="c1"># 拉取远程更新并合并</span>
+git<span class="w"> </span>fetch<span class="w"> </span>origin<span class="w">          </span><span class="c1"># 只拉取更新，不自动合并</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/you/repo.git<span class="w">  </span><span class="c1"># 克隆现有仓库</span>
+</code></pre></div>
+
+<p><code>git fetch</code> 与 <code>git pull</code> 的区别：fetch 只把远程更新下载到本地，
+由你决定何时合并；pull 等于 fetch + merge，一步到位。推送前先
+pull，能减少合并冲突。</p>
+<h2 id="_6">结语</h2>
+<p>以上命令覆盖了日常开发 80% 的 Git 操作。遇到记不住的细节，
+可以用 <code>git help &lt;命令&gt;</code> 查看官方文档。写代码之外，也别忘了
+用 <code>git log --graph</code> 欣赏一下自己分支史。欢迎在评论区分享
+你的常用 Git 技巧。</p>
+  </div>
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 blackholemax-oss · Powered by fastblog</p>
+  </footer>
+</body>
+</html>
