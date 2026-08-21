@@ -53,9 +53,9 @@
 博客生成器：在 <code>content/</code> 写 Markdown，一条命令渲染成静态 HTML，
 再推送到 GitHub 由 Actions 自动发布。这篇拆一下它的实现。</p>
 <h2 id="_2">整体结构</h2>
-<p>核心代码在 <code>staticgen/</code> 包里（模块名沿用了旧名字，品牌是 fastblog），
+<p>核心代码在 <code>fastblog/</code> 包里，
 按职责分了几个模块：</p>
-<div class="highlight"><pre><span></span><code>staticgen/
+<div class="highlight"><pre><span></span><code>fastblog/
 ├── cli.py          # 命令行入口（build / serve / deploy）
 ├── config.py       # 配置加载，缺失字段回退默认值
 ├── engine.py       # 构建编排：插件→解析→渲染→拷贝静态资源
