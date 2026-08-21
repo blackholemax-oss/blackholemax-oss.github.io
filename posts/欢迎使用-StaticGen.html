@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>欢迎使用 StaticGen - BlackHoleMax的开发日志</title>
+  <meta name="description" content="由 StaticGen 驱动的静态博客">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title"><a href="/index.html">BlackHoleMax的开发日志</a></h1>
+    <p class="site-description">由 StaticGen 驱动的静态博客</p>
+  </header>
+
+  <main class="site-main">
+    
+<article class="post">
+  <h1 class="post-title">欢迎使用 StaticGen</h1>
+  <p class="post-meta">发布于 2026-08-18</p>
+  
+  <nav class="post-toc"><div class="toc">
+<ul>
+<li><a href="#staticgen">什么是 StaticGen？</a></li>
+<li><a href="#_1">特性一览</a></li>
+<li><a href="#_2">代码示例</a></li>
+<li><a href="#_3">结语</a></li>
+</ul>
+</div>
+</nav>
+  
+  <div class="post-content">
+    <div class="toc">
+<ul>
+<li><a href="#staticgen">什么是 StaticGen？</a></li>
+<li><a href="#_1">特性一览</a></li>
+<li><a href="#_2">代码示例</a></li>
+<li><a href="#_3">结语</a></li>
+</ul>
+</div>
+<h2 id="staticgen">什么是 StaticGen？</h2>
+<p>StaticGen 是一个静态博客生成器：你在 <code>content/</code> 目录下撰写
+Markdown 文件，运行 <code>python -m staticgen.cli build</code> 即可生成
+完整的静态 HTML 网站，并可通过 GitHub 一键部署。</p>
+<h2 id="_1">特性一览</h2>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Markdown 渲染</td>
+<td>已启用</td>
+<td>基于 python-markdown，含 Tables 扩展</td>
+</tr>
+<tr>
+<td>代码高亮</td>
+<td>已启用</td>
+<td>基于 Pygments 的 CodeHilite 扩展</td>
+</tr>
+<tr>
+<td>目录生成</td>
+<td>已启用</td>
+<td>TOC 扩展，插入 <code>[TOC]</code> 占位符</td>
+</tr>
+<tr>
+<td>元数据解析</td>
+<td>已启用</td>
+<td>YAML / TOML Frontmatter</td>
+</tr>
+</tbody>
+</table>
+<h2 id="_2">代码示例</h2>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""向访问者问好。"""</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"Hello, </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!"</span>
+</code></pre></div>
+
+<h2 id="_3">结语</h2>
+<p>保持写作，保持热爱。期待你的第一篇博客。</p>
+  </div>
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 blackholemax-oss · Powered by StaticGen</p>
+  </footer>
+</body>
+</html>
