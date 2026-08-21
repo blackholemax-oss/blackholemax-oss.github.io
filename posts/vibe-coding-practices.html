@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe Coding 的工程化实践：安全底线与工具链工作流 - BlackHoleMax的开发日志</title>
+  <meta name="description" content="由 fastblog 驱动的静态博客">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title"><a href="/index.html">BlackHoleMax的开发日志</a></h1>
+    <p class="site-description">由 fastblog 驱动的静态博客</p>
+  </header>
+
+  <main class="site-main">
+    
+<article class="post">
+  <h1 class="post-title">Vibe Coding 的工程化实践：安全底线与工具链工作流</h1>
+  <p class="post-meta">发布于 2026-08-21</p>
+  
+  <nav class="post-toc"><div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#_2">方案选型：两条主线</a></li>
+<li><a href="#_3">后端安全五条规范</a><ul>
+<li><a href="#1">1. 配置安全</a></li>
+<li><a href="#2">2. 日志安全</a></li>
+<li><a href="#3">3. 依赖安全</a></li>
+<li><a href="#4">4. 数据库安全</a></li>
+<li><a href="#5">5. 验收规范</a></li>
+</ul>
+</li>
+<li><a href="#ai">AI 工具链工作流</a></li>
+<li><a href="#_4">踩坑记录</a></li>
+<li><a href="#_5">结语</a></li>
+</ul>
+</div>
+</nav>
+  
+  <div class="post-content">
+    <div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#_2">方案选型：两条主线</a></li>
+<li><a href="#_3">后端安全五条规范</a><ul>
+<li><a href="#1">1. 配置安全</a></li>
+<li><a href="#2">2. 日志安全</a></li>
+<li><a href="#3">3. 依赖安全</a></li>
+<li><a href="#4">4. 数据库安全</a></li>
+<li><a href="#5">5. 验收规范</a></li>
+</ul>
+</li>
+<li><a href="#ai">AI 工具链工作流</a></li>
+<li><a href="#_4">踩坑记录</a></li>
+<li><a href="#_5">结语</a></li>
+</ul>
+</div>
+<h2 id="_1">背景</h2>
+<p>Vibe Coding（氛围编程）让 AI 快速产出原型与功能，但「能跑」不等于
+「可靠」。后端底层有三类隐蔽风险常被忽略：<strong>配置、依赖、数据库</strong>。
+同时，如何用 AI 工具把「开发 → 测试 → 内容生产」串成完整工作流，
+也是值得沉淀的工程经验。</p>
+<h2 id="_2">方案选型：两条主线</h2>
+<p>本文整理为两条并行的实践主线：</p>
+<table>
+<thead>
+<tr>
+<th>主线</th>
+<th>目标</th>
+<th>手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>后端安全规范</td>
+<td>堵住隐蔽风险</td>
+<td>五条刚性规范（见下）</td>
+</tr>
+<tr>
+<td>AI 工具链工作流</td>
+<td>覆盖九成场景</td>
+<td>按场景组合专用工具</td>
+</tr>
+</tbody>
+</table>
+<h2 id="_3">后端安全五条规范</h2>
+<h3 id="1">1. 配置安全</h3>
+<p>密钥、Token 绝不硬编码，统一用环境变量读取；示例配置只留占位符。
+曾明文存过密钥的仓库要立即轮换（不是删除，是换新值）。</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># config.example.yaml —— 只允许占位符</span>
+<span class="nt">db</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">"${DB_PASSWORD}"</span>
+<span class="w">  </span><span class="nt">secret</span><span class="p">:</span><span class="w"> </span><span class="s">"${JWT_SECRET}"</span>
+</code></pre></div>
+
+<h3 id="2">2. 日志安全</h3>
+<p>密码、手机号等敏感信息必须脱敏；分清各类日志的职责：</p>
+<table>
+<thead>
+<tr>
+<th>日志类型</th>
+<th>该记什么</th>
+<th>不该记什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>请求日志</td>
+<td>方法、路径、状态码、耗时</td>
+<td>请求体、Token</td>
+</tr>
+<tr>
+<td>错误日志</td>
+<td>异常栈、错误码、上下文 ID</td>
+<td>完整 SQL 与参数</td>
+</tr>
+<tr>
+<td>数据库日志</td>
+<td>慢查询、锁等待</td>
+<td>用户敏感字段明文</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3">3. 依赖安全</h3>
+<p>定期检查框架与 SDK 漏洞（Log4j 一类高危漏洞影响面极广）；升级前
+先确认不影响现有功能；登录、数据库连接类核心依赖重点盯防。</p>
+<h3 id="4">4. 数据库安全</h3>
+<ul>
+<li>核心数据用<strong>软删除</strong>，别物理删</li>
+<li>多表操作必须用<strong>事务</strong>保证一致性</li>
+<li>读写删都要校验身份与权限，不能只靠前端隐藏按钮——后端是最后防线</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># 软删除而非 DELETE</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">soft_delete</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">begin</span><span class="p">():</span>  <span class="c1"># 事务保证一致性</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">User</span><span class="p">,</span> <span class="n">user_id</span><span class="p">)</span>
+        <span class="n">user</span><span class="o">.</span><span class="n">deleted_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+</code></pre></div>
+
+<h3 id="5">5. 验收规范</h3>
+<p>接口做「业务 + 安全」双重测试：正常访问、未登录、越权三种场景
+都要覆盖；全程走接口验证（不是点了页面就算过）；留好日志与
+数据记录作为验收证据。</p>
+<h2 id="ai">AI 工具链工作流</h2>
+<p>按场景组合工具，覆盖九成使用场景：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>工具</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>产品开发</td>
+<td>superpowers</td>
+<td>梳理想法、规划任务</td>
+</tr>
+<tr>
+<td>产品开发</td>
+<td>frontend_design</td>
+<td>优化页面设计</td>
+</tr>
+<tr>
+<td>产品开发</td>
+<td>Playwright MCP</td>
+<td>浏览器自动化测试</td>
+</tr>
+<tr>
+<td>自媒体</td>
+<td>agent-reach</td>
+<td>搜集资料</td>
+</tr>
+<tr>
+<td>自媒体</td>
+<td>humanizer-zh</td>
+<td>去除 AI 味</td>
+</tr>
+<tr>
+<td>自媒体</td>
+<td>content-risk-detector</td>
+<td>敏感词检测</td>
+</tr>
+<tr>
+<td>流程串联</td>
+<td>skill-creator</td>
+<td>一键跑完整工作流</td>
+</tr>
+</tbody>
+</table>
+<p>典型链路：<code>superpowers</code> 理清需求 → 开发 → <code>frontend_design</code> 调优 →
+<code>Playwright MCP</code> 回归测试 → 产出内容用 <code>humanizer-zh</code> 润色 →
+<code>content-risk-detector</code> 把关 → <code>skill-creator</code> 固化为可复用流程。</p>
+<h2 id="_4">踩坑记录</h2>
+<ul>
+<li>曾明文存储密钥到示例配置 → 立即轮换密钥并改为占位符</li>
+<li>只测正常流程、跳过未登录/越权 → 验收必须三场景齐测</li>
+<li>依赖盲目升级导致登录模块故障 → 升级前先做影响评估与回归</li>
+</ul>
+<h2 id="_5">结语</h2>
+<p>Vibe Coding 的安全不靠堆复杂代码，关键是<strong>明确风险在哪、规则咋定、
+证据咋留</strong>。让 AI 说清楚风险、规则和验证依据，而不是只问「安不安全」。
+工具链的意义同样在此：把重复环节固化为流程，让每次交付都可复现、可验证。</p>
+  </div>
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 blackholemax-oss · Powered by fastblog</p>
+  </footer>
+</body>
+</html>
