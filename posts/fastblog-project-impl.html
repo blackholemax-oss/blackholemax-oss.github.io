@@ -116,10 +116,12 @@ Pages。有个容易踩的坑：<code>build</code> 每次清空 <code>output/</c
   模板，密钥类信息天然不泄</li>
 </ul>
 <h2 id="_8">结语</h2>
-<p>fastblog 没有用什么复杂架构，就是分层清晰的十几个文件，但每个
-边界都考虑了「坏了怎么办」。想深入看代码，仓库在
-github.com/blackholemax-oss/fastblog，下一步打算给它加标签页和
-RSS。</p>
+<p>翻完整个项目你会发现没有一处复杂架构，就是十几个文件，每个边界
+都在回答同一个问题：坏了怎么办。文章解析失败不阻断构建，插件
+抛异常只打警告，配置缺字段自动回退，主题目录找不到就退回 default。
+写的人只管写 markdown，剩下的它自己兜底。</p>
+<p>代码在 github.com/blackholemax-oss/fastblog，想看细节可以直接翻。
+接下来打算给它加个标签页，到时候再补一篇。</p>
   </div>
 </article>
 
