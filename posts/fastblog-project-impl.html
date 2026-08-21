@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fastblog 项目实现解析：一个 Python 静态博客生成器 - BlackHoleMax的开发日志</title>
+  <meta name="description" content="由 fastblog 驱动的静态博客">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title"><a href="/index.html">BlackHoleMax的开发日志</a></h1>
+    <p class="site-description">由 fastblog 驱动的静态博客</p>
+  </header>
+
+  <main class="site-main">
+    
+<article class="post">
+  <h1 class="post-title">fastblog 项目实现解析：一个 Python 静态博客生成器</h1>
+  <p class="post-meta">发布于 2026-08-21</p>
+  
+  <nav class="post-toc"><div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#_2">整体结构</a></li>
+<li><a href="#_3">配置加载：缺了也不崩</a></li>
+<li><a href="#frontmatter-slug">文章解析：frontmatter + 渲染 + slug 冲突</a></li>
+<li><a href="#_4">主题继承链：子主题覆盖父主题</a></li>
+<li><a href="#_5">构建编排与插件钩子</a></li>
+<li><a href="#_6">部署：产物仓库模式</a></li>
+<li><a href="#_7">一些实现经验</a></li>
+<li><a href="#_8">结语</a></li>
+</ul>
+</div>
+</nav>
+  
+  <div class="post-content">
+    <div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#_2">整体结构</a></li>
+<li><a href="#_3">配置加载：缺了也不崩</a></li>
+<li><a href="#frontmatter-slug">文章解析：frontmatter + 渲染 + slug 冲突</a></li>
+<li><a href="#_4">主题继承链：子主题覆盖父主题</a></li>
+<li><a href="#_5">构建编排与插件钩子</a></li>
+<li><a href="#_6">部署：产物仓库模式</a></li>
+<li><a href="#_7">一些实现经验</a></li>
+<li><a href="#_8">结语</a></li>
+</ul>
+</div>
+<h2 id="_1">背景</h2>
+<p>这个博客本身就是用 fastblog 生成的。fastblog 是个 Python 写的静态
+博客生成器：在 <code>content/</code> 写 Markdown，一条命令渲染成静态 HTML，
+再推送到 GitHub 由 Actions 自动发布。这篇拆一下它的实现。</p>
+<h2 id="_2">整体结构</h2>
+<p>核心代码在 <code>staticgen/</code> 包里（模块名沿用了旧名字，品牌是 fastblog），
+按职责分了几个模块：</p>
+<div class="highlight"><pre><span></span><code>staticgen/
+├── cli.py          # 命令行入口（build / serve / deploy）
+├── config.py       # 配置加载，缺失字段回退默认值
+├── engine.py       # 构建编排：插件→解析→渲染→拷贝静态资源
+├── readers/        # Markdown 扫描、frontmatter 解析、正文渲染
+├── renderers/      # Jinja2 渲染器与主题继承链
+├── plugins/        # 插件基类与上下文
+└── deploy/         # GitHub Pages 部署
+</code></pre></div>
+
+<p>构建的数据流：<code>config</code> → <code>engine</code> 加载插件 → <code>readers</code> 解析文章 →
+<code>renderers</code> 渲染模板 → 输出 <code>output/</code>。</p>
+<h2 id="_3">配置加载：缺了也不崩</h2>
+<p><code>config.py</code> 把所有配置聚合成几个 dataclass（SiteConfig、BuildConfig、
+ServeConfig、DeployConfig），每个字段都有默认值。加载时逐个
+<code>site.get("title", DEFAULT_SITE_TITLE)</code>，缺字段就回退，所以
+<code>config.yaml</code> 写一半也能跑。布尔字段还做了字符串兼容
+（<code>"false"</code> 不会被 <code>bool()</code> 误判成 True）。</p>
+<h2 id="frontmatter-slug">文章解析：frontmatter + 渲染 + slug 冲突</h2>
+<p><code>readers/markdown_reader.py</code> 用 <code>python-frontmatter</code> 解析 YAML/TOML
+元数据，正文交给 python-markdown 的 extra / codehilite / toc 三个
+扩展。有两个细节我挺喜欢：</p>
+<ul>
+<li><strong>slug 冲突自动处理</strong>：两篇文章 slug 撞了，后一篇自动加 <code>-2</code> 后缀，
+  不会互相覆盖输出文件</li>
+<li><strong>单篇损坏不阻断</strong>：解析失败只打警告跳过，构建照常完成</li>
+</ul>
+<p>文章按日期降序排列，无日期的排最后。</p>
+<h2 id="_4">主题继承链：子主题覆盖父主题</h2>
+<p><code>renderers/jinja_renderer.py</code> 会沿着 <code>theme.yaml</code> 的 <code>parent</code> 字段
+向上找父主题，得到一个「子在前、父在后」的目录链。Jinja2 的
+ChoiceLoader 按这个顺序加载模板，同名模板子主题优先——相当于
+继承 + 覆盖。模板里还能用 <code>url_for()</code> 生成绝对路径，<code>dateformat</code>
+过滤日期，<code>now</code> 取构建时刻。</p>
+<h2 id="_5">构建编排与插件钩子</h2>
+<p><code>engine.py</code> 的流程很直白：</p>
+<ol>
+<li>加载 <code>plugins/</code> 下所有继承 <code>Plugin</code> 的类并实例化</li>
+<li>触发 <code>on_init</code> → 解析文章 → 解析主题链</li>
+<li>清空输出目录（保留 <code>.git</code>，部署历史不丢）</li>
+<li>触发 <code>before_generate</code> → 渲染首页和每篇文章 → 拷贝静态资源</li>
+<li>触发 <code>after_generate</code></li>
+</ol>
+<p>插件三钩子各干各的：初始化、渲染前干预（可以改 <code>ctx.posts</code>）、
+渲染后收尾。钩子抛异常只打警告不中断构建。</p>
+<h2 id="_6">部署：产物仓库模式</h2>
+<p><code>deploy/github.py</code> 走的是「产物仓库 + GitHub Actions」路线：输出
+目录自己就是个 git 仓库，<code>deploy</code> 命令构建、提交、强制推送到
+<code>github-io/main</code>，线上 <code>pages.yml</code> 工作流把仓库内容直接发布到
+Pages。有个容易踩的坑：<code>build</code> 每次清空 <code>output/</code> 会把
+<code>pages.yml</code> 一并删掉，所以 deploy 前会自动按内置模板恢复它。</p>
+<h2 id="_7">一些实现经验</h2>
+<ul>
+<li><strong>容错优先</strong>：全项目 IO 都包 try/except，单篇文章、单插件坏了
+  都不影响整体构建，这对「不知道哪天会写出什么 markdown」的博客
+  很关键</li>
+<li><strong>幂等构建</strong>：每次清空重建，产物和源码一一对应，不会残留脏文件</li>
+<li><strong>配置隔离</strong>：<code>config.yaml</code> 不进 git，<code>config.example.yaml</code> 才是
+  模板，密钥类信息天然不泄</li>
+</ul>
+<h2 id="_8">结语</h2>
+<p>fastblog 没有用什么复杂架构，就是分层清晰的十几个文件，但每个
+边界都考虑了「坏了怎么办」。想深入看代码，仓库在
+github.com/blackholemax-oss/fastblog，下一步打算给它加标签页和
+RSS。</p>
+  </div>
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 blackholemax-oss · Powered by fastblog</p>
+  </footer>
+</body>
+</html>
