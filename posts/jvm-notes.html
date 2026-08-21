@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JVM 学习笔记：内存结构与运行机制 - BlackHoleMax的开发日志</title>
+  <meta name="description" content="由 fastblog 驱动的静态博客">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title"><a href="/index.html">BlackHoleMax的开发日志</a></h1>
+    <p class="site-description">由 fastblog 驱动的静态博客</p>
+  </header>
+
+  <main class="site-main">
+    
+<article class="post">
+  <h1 class="post-title">JVM 学习笔记：内存结构与运行机制</h1>
+  <p class="post-meta">发布于 2026-08-21</p>
+  
+  <nav class="post-toc"><div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#jvm">JVM 基础大纲</a></li>
+<li><a href="#_2">程序计数器</a></li>
+<li><a href="#_3">虚拟机栈</a></li>
+<li><a href="#_4">结语</a></li>
+</ul>
+</div>
+</nav>
+  
+  <div class="post-content">
+    <div class="toc">
+<ul>
+<li><a href="#_1">背景</a></li>
+<li><a href="#jvm">JVM 基础大纲</a></li>
+<li><a href="#_2">程序计数器</a></li>
+<li><a href="#_3">虚拟机栈</a></li>
+<li><a href="#_4">结语</a></li>
+</ul>
+</div>
+<h2 id="_1">背景</h2>
+<p>最近把 Logseq 里零散的 JVM 学习笔记整理到一起，顺便补全了当时没写
+完整的部分。这篇就是整理结果，配图沿用原笔记的图。</p>
+<h2 id="jvm">JVM 基础大纲</h2>
+<p>Java 源代码先编译为二进制字节码 <code>.class</code>，再由 ClassLoader 加载进
+JVM。之后的运行路径大致是：</p>
+<ul>
+<li>类 → 方法区</li>
+<li>实例对象 → 堆</li>
+<li>实例对象调用方法 → 虚拟机栈、程序计数器、本地方法栈</li>
+<li>方法执行时每行代码 → 执行引擎中的解释器</li>
+<li>被频繁调用的代码 → JIT 即时编译器</li>
+<li>不再被引用的对象 → GC 垃圾回收</li>
+<li>必须调用操作系统功能的方法 → 本地方法接口</li>
+</ul>
+<p><img alt="JVM 整体结构图" src="/static/images/jvm/image_1780650222898_0.png" /></p>
+<h2 id="_2">程序计数器</h2>
+<p>程序计数器的作用是记住<strong>下一条 JVM 指令的执行地址</strong>，物理上通过
+寄存器实现。指令链路是：JVM 指令 → 解释器 → 机器码 → CPU。</p>
+<p><img alt="程序计数器" src="/static/images/jvm/image_1780650674927_0.png" /></p>
+<p>多线程运行时靠时间片切换，线程 1 时间片耗尽切到线程 2 时，程序
+计数器保存线程 1 下一条指令的地址——这个计数器属于线程 1 自己，
+<strong>每个线程都有各自的程序计数器</strong>。</p>
+<p>两个特点值得记牢：</p>
+<ul>
+<li>线程私有</li>
+<li>不会内存溢出（整个 JVM 里唯一不会 OOM 的区域）</li>
+</ul>
+<h2 id="_3">虚拟机栈</h2>
+<p>栈帧是每个方法运行时需要的内存：方法调用压栈，返回弹栈。
+图中的栈帧结构是基础，后面学 GC 和 JIT 还会用到。</p>
+<p><img alt="虚拟机栈" src="/static/images/jvm/image_1780653823567_0.png" /></p>
+<h2 id="_4">结语</h2>
+<p>这张「类→方法区、对象→堆、方法调用→栈区、执行→解释器+JIT、
+回收→GC、系统调用→本地接口」的脉络图已经过了一遍，程序计数器
+的「线程私有 + 不溢出」也记下了。下一步准备把 GC 和 JIT 的笔记
+同样整理出来。</p>
+  </div>
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 blackholemax-oss · Powered by fastblog</p>
+  </footer>
+</body>
+</html>
